@@ -59,11 +59,15 @@ node['gluster']['server']['volumes'].each do |volume_name, volume_values|
     # Configure the trusted pool if needed
     volume_values['peers'].each do |peer|
       next if peer == node['fqdn'] || peer == node['hostname']
-      execute "gluster peer probe #{peer}" do
-        action :run
-        not_if "egrep '^hostname.+=#{peer}$' /var/lib/glusterd/peers/*"
-        retries node['gluster']['server']['peer_retries']
-        retry_delay node['gluster']['server']['peer_retry_delay']
+      begin
+        execute "gluster peer probe #{peer}" do
+          action :run
+          not_if "egrep '^hostname.+=#{peer}$' /var/lib/glusterd/peers/*"
+          retries node['gluster']['server']['peer_retries']
+          retry_delay node['gluster']['server']['peer_retry_delay']
+        end
+      rescue
+        Chef::Log "Couldn't peer probe to #{peer}."
       end
       # Wait here until the peer reaches connected status (needed for volume create later)
       execute "gluster peer status | sed -e '/Other names:/d' | grep -A 2 -B 1 #{peer} | grep 'Peer in Cluster (Connected)'" do
